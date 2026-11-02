@@ -43,13 +43,21 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const onOnline = ({ count }: { count: number }) => setOnline(count);
     const onActivity = (item: ActivityItem) => setActivity((prev) => [item, ...prev].slice(0, 8));
     const onLeaderboard = () => void refreshRef.current();
+    // A server-side rejection (e.g. the database is briefly down) doesn't auto-retry, so do it ourselves.
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const onConnectError = () => {
+      if (!socket.active) retry = setTimeout(() => socket.connect(), 3000);
+    };
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('online', onOnline);
     socket.on('activity', onActivity);
     socket.on('leaderboard:changed', onLeaderboard);
+    socket.on('connect_error', onConnectError);
     return () => {
+      clearTimeout(retry);
+      socket.off('connect_error', onConnectError);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('online', onOnline);

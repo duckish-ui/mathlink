@@ -80,6 +80,9 @@ if (existsSync(clientDist)) {
 
 app.use(errorHandler);
 
+// Log stray async errors instead of crashing the whole server (and every live room with it).
+process.on('unhandledRejection', (err) => console.error('Unhandled rejection', err));
+
 const server = createServer(app);
 initRealtime(server, corsOrigin);
 

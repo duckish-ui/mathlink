@@ -12,7 +12,9 @@ import { prisma } from '../lib/prisma.js';
 const router = Router();
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
+const MODEL = process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b';
+// gpt-oss is a reasoning model: keep its thinking short and out of the reply.
+const REASONING = MODEL.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low', include_reasoning: false } : {};
 
 const SYSTEM = `You are MathLink's friendly math tutor for high-school and early college students.
 Write math in LaTeX between single dollar signs, e.g. $x^2 + 1$. Never use \\( \\) or \\[ \\].
@@ -42,6 +44,7 @@ async function askGroq(prompt: string, maxTokens: number) {
       model: MODEL,
       temperature: 0.3,
       max_tokens: maxTokens,
+      ...REASONING,
       messages: [
         { role: 'system', content: SYSTEM },
         { role: 'user', content: prompt },
@@ -76,7 +79,7 @@ router.post('/hint', requireAuth, limiter, async (req, res) => {
   const q = await loadQuestion(questionId);
   const text = await askGroq(
     `Give ONE short hint (2-3 sentences) that helps a student start this problem. Do not solve it, do not say which choice is correct, and do not compute the final value.\n\nProblem: ${q.prompt}\nChoices:\n${listChoices(q.choices)}`,
-    200,
+    700,
   );
   res.json({ text });
 });
@@ -95,7 +98,7 @@ router.post('/explain', requireAuth, limiter, async (req, res) => {
       : 'The student skipped this question.';
   const text = await askGroq(
     `Explain step by step how to solve this problem in under 150 words.\n\nProblem: ${q.prompt}\nChoices:\n${listChoices(q.choices)}\nCorrect answer: ${letter(q.answerIndex)}) ${q.choices[q.answerIndex]}\n${picked}`,
-    400,
+    1200,
   );
   res.json({ text });
 });

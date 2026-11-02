@@ -106,11 +106,15 @@ export function initRealtime(httpServer: HttpServer, corsOrigin: string | false)
   // to receive global updates, but can't enter rooms.
   io.use(async (socket: AppSocket, next) => {
     const userId = verifyToken(socket.handshake.auth?.token);
-    if (userId) {
+    if (!userId) return next();
+    try {
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
       if (user) socket.data.user = user;
+      next();
+    } catch (err) {
+      console.error('socket auth failed', err);
+      next(new Error('Server unavailable, retrying…'));
     }
-    next();
   });
 
   const broadcastOnline = () => io.emit('online', { count: io.engine.clientsCount });
