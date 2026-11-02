@@ -1,0 +1,20 @@
+{
+  "name": "mathlink",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n db,server,client -c gray,blue,magenta \"npm run db -w server\" \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run db:push -w server -- --skip-generate && npm run db:seed-if-empty -w server && npm start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

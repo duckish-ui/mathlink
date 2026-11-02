@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String            @id @default(cuid())
+  name         String
+  email        String            @unique
+  passwordHash String
+  xp           Int               @default(0)
+  streak       Int               @default(0)
+  lastActiveAt DateTime?
+  createdAt    DateTime          @default(now())
+  hosted       Session[]         @relation("HostedSessions")
+  attending    SessionAttendee[]
+  attempts     QuizAttempt[]
+  xpEvents     XpEvent[]
+  messages     ChatMessage[]
+
+  @@index([xp])
+}
+
+model Topic {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String
+  color       String
+  order       Int        @default(0)
+  sessions    Session[]
+  quizzes     Quiz[]
+  resources   Resource[]
+}
+
+model Session {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  lesson      String            @default("")
+  startsAt    DateTime
+  durationMin Int
+  capacity    Int
+  meetingUrl  String?
+  createdAt   DateTime          @default(now())
+  topicId     String
+  topic       Topic             @relation(fields: [topicId], references: [id])
+  hostId      String
+  host        User              @relation("HostedSessions", fields: [hostId], references: [id])
+  attendees   SessionAttendee[]
+  messages    ChatMessage[]
+
+  @@index([startsAt])
+}
+
+model SessionAttendee {
+  userId    String
+  sessionId String
+  joinedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sessionId])
+  @@index([sessionId])
+}
+
+model Quiz {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  difficulty  String // "easy" | "medium" | "hard"
+  xpReward    Int
+  topicId     String
+  topic       Topic         @relation(fields: [topicId], references: [id])
+  questions   Question[]
+  attempts    QuizAttempt[]
+}
+
+model Question {
+  id          String @id @default(cuid())
+  order       Int
+  prompt      String
+  choices     String[]
+  answerIndex Int
+  explanation String
+  quizId      String
+  quiz        Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  score     Int
+  total     Int
+  xpEarned  Int
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([userId, quizId])
+}
+
+model XpEvent {
+  id        String   @id @default(cuid())
+  amount    Int
+  reason    String
+  ref       String? // e.g. "session:<id>" so XP can be revoked when leaving
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model Resource {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  url         String
+  type        String // "Video" | "Course" | "Book" | "Interactive" | "Notes"
+  topicId     String
+  topic       Topic  @relation(fields: [topicId], references: [id])
+}
+
+/// Chat messages sent inside a live session room.
+model ChatMessage {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
